@@ -1,74 +1,267 @@
-DYNAMIC IMAGE SLIDER
 
-Description
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dynamic Education Image Slider</title>
+  <style>
+    :root{
+      --bg:#0b1020; --card:#121833; --text:#e8ecff; --muted:#9aa3c7;
+      --accent:#6aa5ff; --accent-2:#9bffb3; --shadow:rgba(0,0,0,.35);
+    }
+    *{box-sizing:border-box}
+    body{margin:0; font-family:system-ui,Segoe UI,Roboto,Inter,sans-serif; background:linear-gradient(145deg,#0b1020 0%,#0f1a3e 100%); color:var(--text);}
+    .wrap{max-width:1000px; margin:32px auto; padding:16px;}
+    .card{background:linear-gradient(180deg,rgba(255,255,255,.04),rgba(255,255,255,.02)); border:1px solid rgba(255,255,255,.08); border-radius:20px; box-shadow:0 20px 40px var(--shadow); overflow:hidden}
+    .header{display:flex; align-items:center; justify-content:space-between; padding:18px 20px; gap:12px;}
+    .title{font-weight:700; letter-spacing:.3px}
+    .muted{color:var(--muted); font-size:.9rem}
 
-The Dynamic Image Slider is an interactive web component that allows users to automatically or manually browse through a collection of images in a smooth, visually appealing way. It dynamically loads images from a folder, database, or API, and displays them with transition effects (like fade, slide, zoom, etc.).
+    /* Slider core */
+    .slider{position:relative; width:100%; aspect-ratio:16/9; background:#0a0f21; overflow:hidden}
+    .slides{display:flex; height:100%; transform:translateX(0); transition:transform .6s cubic-bezier(.22,.61,.36,1);}
+    .slide{min-width:100%; height:100%; position:relative;}
+    .slide img{width:100%; height:100%; object-fit:cover; display:block; filter:saturate(1.05) contrast(1.02)}
+    .caption{position:absolute; left:16px; bottom:16px; max-width:80%; background:linear-gradient(90deg,rgba(0,0,0,.55),rgba(0,0,0,0)); padding:12px 16px; border-radius:14px; backdrop-filter: blur(4px); border:1px solid rgba(255,255,255,.15);}
+    .caption h3{margin:0 0 6px 0; font-size:1.1rem}
+    .caption p{margin:0; font-size:.9rem; color:#d6dcff}
 
-This slider is typically used in websites, portfolios, e-commerce platforms, or galleries to showcase products, advertisements, or visuals attractively.
+    /* Controls */
+    .ctrl{position:absolute; inset:0; display:flex; align-items:center; justify-content:space-between; pointer-events:none}
+    .btn{pointer-events:auto; background:rgba(10,15,33,.55); border:1px solid rgba(255,255,255,.15); width:46px; height:46px; border-radius:50%; display:grid; place-items:center; margin:0 10px; backdrop-filter:saturate(140%) blur(4px); cursor:pointer; transition:transform .15s ease, background .2s}
+    .btn:hover{transform:translateY(-1px); background:rgba(10,15,33,.75)}
+    .btn svg{width:22px; height:22px; fill:none; stroke:#fff; stroke-width:2.5}
 
-The project uses HTML, CSS, and JavaScript (or React/Bootstrap for an advanced version) to provide a seamless and responsive experience.
+    /* Dots */
+    .dots{position:absolute; left:50%; transform:translateX(-50%); bottom:10px; display:flex; gap:8px;}
+    .dot{width:10px; height:10px; border-radius:999px; background:rgba(255,255,255,.35); border:1px solid rgba(255,255,255,.4); cursor:pointer; transition:width .25s ease, background .25s ease}
+    .dot.active{background:linear-gradient(90deg,var(--accent),var(--accent-2)); width:28px}
 
-Uniqueness
+    /* Progress bar */
+    .progress{position:absolute; left:0; right:0; top:0; height:4px; background:rgba(255,255,255,.06)}
+    .bar{height:100%; width:0%; background:linear-gradient(90deg,var(--accent),var(--accent-2)); box-shadow:0 0 16px rgba(106,165,255,.45) inset; transition:width 0s}
 
-What makes this project unique:
+    /* Thumbnails */
+    .thumbs{display:grid; grid-template-columns:repeat(8,1fr); gap:8px; padding:14px; background:rgba(255,255,255,.02); border-top:1px solid rgba(255,255,255,.08)}
+    .thumb{aspect-ratio:16/10; border-radius:10px; overflow:hidden; position:relative; cursor:pointer; border:1px solid rgba(255,255,255,.12)}
+    .thumb img{width:100%; height:100%; object-fit:cover; filter:saturate(1.05)}
+    .thumb::after{content:""; position:absolute; inset:0; box-shadow:inset 0 0 0 2px rgba(255,255,255,.0); transition:box-shadow .2s, transform .2s}
+    .thumb.active::after{box-shadow:inset 0 0 0 2px var(--accent)}
+    .thumb:hover{transform:translateY(-1px)}
 
-Dynamic loading: Images can be fetched automatically from a source (API or local folder) without hardcoding them.
+    /* Responsive */
+    @media (max-width:700px){
+      .caption{max-width:92%; left:10px; right:10px}
+      .thumbs{grid-template-columns:repeat(4,1fr)}
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap card" aria-label="Education Image Slider">
+    <div class="header">
+      <div>
+        <div class="title">Education Image Slider</div>
+        <div class="muted">Autoplay • Swipe • Keyboard • Lazy‑load • Thumbnails</div>
+      </div>
+      <button id="playPause" class="btn" aria-label="Pause autoplay" title="Pause autoplay">
+        <svg viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
+      </button>
+    </div>
 
-Customizable transitions: Users can choose between fade, slide, or zoom effects.
+    <div class="slider" id="slider" tabindex="0" aria-live="polite">
+      <div class="progress"><div class="bar" id="bar"></div></div>
+      <div class="slides" id="slides"></div>
+      <div class="ctrl">
+        <button class="btn" id="prev" aria-label="Previous slide" title="Previous">
+          <svg viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <button class="btn" id="next" aria-label="Next slide" title="Next">
+          <svg viewBox="0 0 24 24"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+      <div class="dots" id="dots" aria-label="Slide pagination"></div>
+    </div>
 
-Auto & manual controls: Supports autoplay with adjustable time intervals and manual navigation with next/prev buttons.
+    <div class="thumbs" id="thumbs" aria-label="Thumbnails"></div>
+  </div>
 
-Responsive design: Adapts to all screen sizes (mobile, tablet, desktop).
+  <script>
+  // --- Configure your images & captions here ---
+  const slidesData = [
+    {
+      src: "https://images.unsplash.com/photo-1513258496099-48168024aec0?q=80&w=1600&auto=format&fit=crop",
+      title: "Modern Classroom",
+      text: "Active learning with collaborative seating and smart boards."
+    },
+    {
+      src: "https://images.unsplash.com/photo-1556157382-97eda2d62296?q=80&w=1600&auto=format&fit=crop",
+      title: "Coding Lab",
+      text: "Students building web apps and learning JavaScript fundamentals."
+    },
+    {
+      src: "https://images.unsplash.com/photo-1551434678-e076c223a692?q=80&w=1600&auto=format&fit=crop",
+      title: "Team Projects",
+      text: "Pair programming and peer reviews to boost problem‑solving."
+    },
+    {
+      src: "https://images.unsplash.com/photo-1519389950473-47ba0277781c?q=80&w=1600&auto=format&fit=crop",
+      title: "EdTech Workshop",
+      text: "Exploring AI tools to personalize learning paths."
+    },
+    {
+      src: "https://images.unsplash.com/photo-1509062522246-3755977927d7?q=80&w=1600&auto=format&fit=crop",
+      title: "Library Research",
+      text: "Deep work zones for research, reading and reflection."
+    },
+    {
+      src: "https://images.unsplash.com/photo-1523580846011-d3a5bc25702b?q=80&w=1600&auto=format&fit=crop",
+      title: "STEM Lab",
+      text: "Hands‑on experiments connecting theory with real world."
+    },
+    {
+      src: "https://images.unsplash.com/photo-1523580846011-23c58e5b6e2b?q=80&w=1600&auto=format&fit=crop",
+      title: "Robotics Club",
+      text: "Arduino, sensors and autonomous navigation basics."
+    },
+    {
+      src: "https://images.unsplash.com/photo-1512777576244-b846aceda2e3?q=80&w=1600&auto=format&fit=crop",
+      title: "Graduation Day",
+      text: "Celebrating milestones and future goals."
+    }
+  ];
 
-Caption & overlay support: Allows adding image titles, descriptions, or buttons over images dynamically.
+  // --- Slider logic ---
+  const slidesEl = document.getElementById('slides');
+  const dotsEl = document.getElementById('dots');
+  const thumbsEl = document.getElementById('thumbs');
+  const barEl = document.getElementById('bar');
+  const prevBtn = document.getElementById('prev');
+  const nextBtn = document.getElementById('next');
+  const playPauseBtn = document.getElementById('playPause');
+  const sliderEl = document.getElementById('slider');
 
-Smooth animations: Uses CSS transitions and JS timers for professional presentation quality.
+  let idx = 0;
+  let autoplay = true;
+  const duration = 4000; // ms per slide
+  let timer = null, progressRAF = null, tStart = 0;
 
-Features
-Feature	Description
-Dynamic Image Loading	Automatically fetches images from a folder or database.
-Auto Play Mode	Cycles through images every few seconds.
-Manual Navigation	Users can click “Next” or “Previous” to control slides.
-Pause/Play Button	Option to pause autoplay when hovered or clicked.
-Responsive Design	Works perfectly on desktop, tablet, and mobile.
-Transition Effects	Fade-in, slide, or zoom transitions between images.
-Image Caption	Each image can have a title or text overlay.
-Customizable Speed	Control the delay time between transitions.
-Keyboard Support	Left/Right arrow keys navigate slides.
-Indicator Dots	Shows which image is currently displayed.
-Output
+  // Build DOM
+  slidesData.forEach((s, i) => {
+    const slide = document.createElement('div');
+    slide.className = 'slide';
+    // Lazy image
+    const img = document.createElement('img');
+    img.loading = 'lazy';
+    img.alt = s.title;
+    img.src = s.src; // can switch to data-src + IntersectionObserver if needed
+    slide.appendChild(img);
 
-Expected Output:
-When the user opens the webpage:
+    const cap = document.createElement('div');
+    cap.className = 'caption';
+    cap.innerHTML = `<h3>${s.title}</h3><p>${s.text}</p>`;
+    slide.appendChild(cap);
+    slidesEl.appendChild(slide);
 
-A smooth, animated slider automatically begins cycling through images.
+    // Dot
+    const dot = document.createElement('button');
+    dot.className = 'dot';
+    dot.setAttribute('aria-label', `Go to slide ${i+1}`);
+    dot.addEventListener('click', () => go(i));
+    dotsEl.appendChild(dot);
 
-Users can click arrows or dots to navigate.
+    // Thumb
+    const th = document.createElement('div');
+    th.className = 'thumb';
+    th.innerHTML = `<img alt="${s.title}" src="${s.src}"/>`;
+    th.title = s.title;
+    th.addEventListener('click', () => go(i));
+    thumbsEl.appendChild(th);
+  });
 
-On hovering, the slider pauses, showing the caption or details about the image.
+  function updateUI(){
+    slidesEl.style.transform = `translateX(${-idx*100}%)`;
+    [...dotsEl.children].forEach((d,i)=>d.classList.toggle('active', i===idx));
+    [...thumbsEl.children].forEach((t,i)=>t.classList.toggle('active', i===idx));
+  }
 
-The transitions (slide/fade) appear smooth and responsive.
+  function go(i){
+    idx = (i + slidesData.length) % slidesData.length;
+    updateUI();
+    restartProgress();
+  }
 
-Example Visual Output (Description):
+  function next(){ go(idx+1); }
+  function prev(){ go(idx-1); }
 
-A full-width image fades out, and the next one slides in with a caption like “Explore the World with Us!” and navigation arrows appear at the sides.
+  function startAutoplay(){
+    autoplay = true;
+    playPauseBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>';
+    restartProgress();
+  }
+  function stopAutoplay(){
+    autoplay = false;
+    playPauseBtn.innerHTML = '<svg viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>';
+    if(timer) clearTimeout(timer);
+    if(progressRAF) cancelAnimationFrame(progressRAF);
+  }
 
-Technology Stack
+  function restartProgress(){
+    if(progressRAF) cancelAnimationFrame(progressRAF);
+    if(timer) clearTimeout(timer);
+    barEl.style.transition = 'none';
+    barEl.style.width = '0%';
+    tStart = performance.now();
 
-Frontend: HTML, CSS, JavaScript
+    const tick = (now) => {
+      const elapsed = now - tStart;
+      const pct = Math.min(100, (elapsed/duration)*100);
+      barEl.style.width = pct + '%';
+      if(pct < 100 && autoplay){
+        progressRAF = requestAnimationFrame(tick);
+      }else if(autoplay){
+        next();
+      }
+    };
+    if(autoplay){
+      progressRAF = requestAnimationFrame(tick);
+      timer = setTimeout(next, duration);
+    }
+  }
 
-Optional Enhancements: jQuery / React.js / Bootstrap Carousel
+  // Event listeners
+  nextBtn.addEventListener('click', next);
+  prevBtn.addEventListener('click', prev);
+  playPauseBtn.addEventListener('click', () => autoplay ? stopAutoplay() : startAutoplay());
 
-Image Source: Local Folder / Cloud Storage / REST API
+  // Pause on hover / focus for accessibility
+  sliderEl.addEventListener('mouseenter', stopAutoplay);
+  sliderEl.addEventListener('mouseleave', startAutoplay);
+  sliderEl.addEventListener('focusin', stopAutoplay);
+  sliderEl.addEventListener('focusout', startAutoplay);
 
-Use Cases
+  // Keyboard navigation
+  sliderEl.addEventListener('keydown', (e)=>{
+    if(e.key === 'ArrowRight') next();
+    if(e.key === 'ArrowLeft') prev();
+    if(e.code === 'Space') { e.preventDefault(); autoplay ? stopAutoplay() : startAutoplay(); }
+  });
 
-Product showcase (e-commerce websites)
+  // Touch / swipe support
+  let x0=null; let lock=false;
+  const unify = e => e.changedTouches ? e.changedTouches[0].clientX : e.clientX;
+  sliderEl.addEventListener('pointerdown', e=>{ x0 = unify(e); lock=true; sliderEl.setPointerCapture(e.pointerId); stopAutoplay(); });
+  sliderEl.addEventListener('pointermove', e=>{
+    if(!lock) return; const dx = unify(e) - x0; slidesEl.style.transition='none'; slidesEl.style.transform = `translateX(${dx/sliderEl.clientWidth*100 - idx*100}%)`;
+  });
+  sliderEl.addEventListener('pointerup', e=>{
+    if(!lock) return; const dx = unify(e) - x0; slidesEl.style.transition=''; lock=false;
+    if(Math.abs(dx) > sliderEl.clientWidth*0.2) { dx>0 ? prev() : next(); } else { updateUI(); startAutoplay(); }
+  });
 
-Photography portfolio display
-
-Travel or food blogs
-
-Landing page hero banners
-
-Promotional ad sliders
+  // init
+  updateUI();
+  startAutoplay();
+  </script>
+</body>
+</html>
